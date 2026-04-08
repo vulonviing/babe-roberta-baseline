@@ -21,9 +21,59 @@ Target: match or exceed published baselines with a clean RoBERTa-base fine-tune 
 
 ![Baseline comparison](results/baseline_comparison.png)
 
-Per-fold macro-F1: 0.876, 0.854, 0.845, 0.852, 0.856. Accuracy 0.858 ± 0.012. Fold-to-fold std is ~1.2 points — the baseline is stable. A clean RoBERTa-base fine-tune exceeds both published baselines by 4–5 macro-F1 points without distant supervision or domain-adaptive pre-training.
+### K-fold summary
 
-On a held-out single-split test run (n=468), the model reaches 0.870 macro-F1 with balanced per-class recall (86.96% non-biased, 87.36% biased) and slightly higher precision on the biased class (89.4% vs 84.5%). See `results/` for confusion matrix and error analysis.
+| Metric | Mean ± Std |
+|---|---|
+| Macro-F1 | 0.857 ± 0.012 |
+| Accuracy | 0.858 ± 0.012 |
+| Precision (macro) | 0.856 ± 0.011 |
+| Recall (macro) | 0.859 ± 0.012 |
+| Biased F1 | 0.869 ± 0.011 |
+
+Per-fold macro-F1: 0.876, 0.854, 0.845, 0.852, 0.856. Best fold is `fold_0` with macro-F1 `0.876`, which is the checkpoint selected for Hugging Face release.
+
+### Held-out quick-run evaluation
+
+On a held-out single-split test run (`n=468`), the model reaches `0.870` macro-F1.
+
+|  | Pred non-biased | Pred biased |
+|---|---|---|
+| True non-biased (207) | 180 | 27 |
+| True biased (261) | 33 | 228 |
+
+![Confusion matrix](results/confusion_matrix.png)
+
+This quick-run split is slightly optimistic relative to the 5-fold mean, so the cross-validation number is the main result to report. See `results/` for full metrics and error analysis.
+
+## Model access
+
+- Training code and notebooks: [vulonviing/babe-roberta-baseline](https://github.com/vulonviing/babe-roberta-baseline)
+- Trained model weights and tokenizer: [vulonviing/roberta-babe-baseline](https://huggingface.co/vulonviing/roberta-babe-baseline)
+- GitHub is for code, notebooks, documentation, and result artifacts in `results/`.
+- Hugging Face Hub is for the released checkpoint (`fold_0`) and model card.
+- Model weights are intentionally **not** stored in git.
+- Release notebook: `notebooks/huggingface_upload.ipynb`
+
+## What is excluded from git?
+
+The repo keeps code and lightweight artifacts under version control, but excludes large or regenerable files:
+
+- `models/` for local checkpoints
+- `data/raw/` for downloaded source data
+- `data/processed/` for regenerated parquet splits
+- `wandb/` for experiment logs
+- `.venv/` and Python cache files
+
+Download the released model from Hugging Face instead of GitHub:
+
+```python
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+repo_id = "vulonviing/roberta-babe-baseline"
+tokenizer = AutoTokenizer.from_pretrained(repo_id)
+model = AutoModelForSequenceClassification.from_pretrained(repo_id)
+```
 
 ## Key findings
 - A plain RoBERTa-base fine-tune is enough to reproduce the BABE task strongly: 5-fold CV reaches `0.857 ± 0.012` macro-F1, above the published baselines listed above.
@@ -34,6 +84,24 @@ For details, see:
 - `notebooks/02_data_exploration.ipynb` for class balance, length statistics, and sample sentences.
 - `notebooks/04_evaluation.ipynb` for confusion matrix, misclassified examples, and error analysis.
 - `notebooks/05_final_report.ipynb` for the final comparison table, summary figures, and reporting-ready takeaways.
+
+## Model details
+
+| Item | Value |
+|---|---|
+| Base model | `roberta-base` |
+| Task | Sentence-level media bias classification |
+| Labels | `non-biased`, `biased` |
+| Dataset | `mediabiasgroup/BABE` |
+| Released checkpoint | `models/fold_0/checkpoint-532` |
+| Hugging Face repo | [vulonviing/roberta-babe-baseline](https://huggingface.co/vulonviing/roberta-babe-baseline) |
+| Max sequence length | `128` |
+| Epochs | `4` |
+| Learning rate | `2e-5` |
+| Batch size | `16` train / `32` eval |
+| Weight decay | `0.01` |
+| Warmup ratio | `0.1` |
+| Random seed | `42` |
 
 ## Pipeline
 The project is a pipeline of 5 notebooks, each calling functions from `src/`. Notebooks are thin orchestrators; logic lives in scripts.
@@ -48,6 +116,8 @@ The project is a pipeline of 5 notebooks, each calling functions from `src/`. No
 
 Run notebooks in order. Each is idempotent — re-running won't break the next.
 
+For model release, use `notebooks/huggingface_upload.ipynb`. It is intentionally separate from the numbered pipeline above and only prepares/uploads the final Hugging Face checkpoint.
+
 ## Project structure
 ```
 .
@@ -58,7 +128,7 @@ Run notebooks in order. Each is idempotent — re-running won't break the next.
 │   ├── train.py            # training loop wrapper
 │   ├── evaluate.py         # metrics, k-fold CV
 │   └── viz.py              # plotting helpers
-├── notebooks/              # pipeline notebooks (01 → 05)
+├── notebooks/              # pipeline notebooks (01 → 05) + separate HF upload notebook
 ├── data/
 │   ├── raw/                # untouched HF download
 │   └── processed/          # cleaned parquet splits
